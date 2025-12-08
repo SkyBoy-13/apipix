@@ -9,6 +9,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+
 function hash(value) {
   return crypto
     .createHash("sha256")
@@ -30,6 +31,10 @@ app.post("/gerar-pix", async (req, res) => {
 
   console.log("📥 REQ BODY RECEBIDO:", req.body);
 
+
+// Gera PIX (BuckPay) e envia no WhatsApp com botão
+app.post("/gerar-pix", async (req, res) => {
+ (:tada: Commit Inicial)
   try {
     const { valor, nome, email, documento, telefone } = req.body;
 
@@ -89,12 +94,20 @@ app.post("/gerar-pix", async (req, res) => {
   }
 );
 
+
 // ⏳ AQUI! — Delay obrigatório antes do botão
 await new Promise(resolve => setTimeout(resolve, 300));
 
    // 3️⃣ BOTÃO CORRIGIDO
 await axios.post(
   `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-button`,
+
+
+
+   // 3️⃣ SEGUNDA MENSAGEM — BOTÃO COPIAR PIX
+await axios.post(
+  `https://apiz.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-button`,
+
   {
     phone: phoneClean,
     message: "Clique abaixo para copiar o código PIX:",
@@ -130,6 +143,7 @@ return res.json({
 }
 
 }); // ← FECHA A ROTA app.post("/gerar-pix")
+
 
 // 📡 WEBHOOK DO PIX — BuckPay chama essa rota quando o pagamento é confirmado
 app.post("/webhook-pix", async (req, res) => {
@@ -238,4 +252,8 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log("Servidor rodando na porta", PORT);
+
+// INICIO DO SERVIDOR
+app.listen(3000, () => {
+  console.log("Servidor rodando na porta 3000");
 });
