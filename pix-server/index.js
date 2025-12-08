@@ -17,6 +17,9 @@ app.use((req, res, next) => {
 
 // Gera PIX (BuckPay) e envia no WhatsApp com botão
 app.post("/gerar-pix", async (req, res) => {
+
+  console.log("📥 REQ BODY RECEBIDO:", req.body);
+
   try {
     const { valor, nome, email, documento, telefone } = req.body;
 
