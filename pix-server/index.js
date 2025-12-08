@@ -129,7 +129,7 @@ app.post("/webhook-pix", async (req, res) => {
     const evento = req.body;
     const status = evento?.data?.status;
     const txid = evento?.data?.txid;
-    const phone = evento?.data?.customer?.phone; // depende se o BuckPay envia o phone
+    const phone = evento?.data?.customer?.phone;
 
     // 💰 Quando o pagamento for confirmado:
     if (status === "confirmed") {
@@ -140,7 +140,7 @@ app.post("/webhook-pix", async (req, res) => {
         `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
         {
           phone: phone,
-          message: "🎉 Pagamento aprovado! Aqui está o seu produto..."
+          message: "🎉 Pagamento aprovado! Aqui está seu produto..."
         },
         {
           headers: {
@@ -150,16 +150,17 @@ app.post("/webhook-pix", async (req, res) => {
         }
       );
 
-      console.log("📦 Produto enviado para o cliente:", phone);
+      console.log("📦 Produto enviado ao cliente:", phone);
     }
 
     res.sendStatus(200);
-    
+
   } catch (err) {
     console.log("❌ ERRO NO WEBHOOK:", err.response?.data || err.message);
     res.sendStatus(500);
   }
 });
+
 
 
 // INICIO DO SERVIDOR
