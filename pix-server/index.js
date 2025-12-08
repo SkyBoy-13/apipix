@@ -121,6 +121,47 @@ return res.json({
 
 }); // ← FECHA A ROTA app.post("/gerar-pix")
 
+// 📡 WEBHOOK DO PIX — BuckPay chama essa rota quando o pagamento é confirmado
+app.post("/webhook-pix", async (req, res) => {
+  console.log("📡 WEBHOOK PIX RECEBIDO:", req.body);
+
+  try {
+    const evento = req.body;
+    const status = evento?.data?.status;
+    const txid = evento?.data?.txid;
+    const phone = evento?.data?.customer?.phone; // depende se o BuckPay envia o phone
+
+    // 💰 Quando o pagamento for confirmado:
+    if (status === "confirmed") {
+      console.log("💰 PAGAMENTO CONFIRMADO:", txid);
+
+      // Envie automaticamente o produto no WhatsApp
+      await axios.post(
+        `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
+        {
+          phone: phone,
+          message: "🎉 Pagamento aprovado! Aqui está o seu produto..."
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Client-Token": process.env.ZAPI_CLIENT_TOKEN
+          }
+        }
+      );
+
+      console.log("📦 Produto enviado para o cliente:", phone);
+    }
+
+    res.sendStatus(200);
+    
+  } catch (err) {
+    console.log("❌ ERRO NO WEBHOOK:", err.response?.data || err.message);
+    res.sendStatus(500);
+  }
+});
+
+
 // INICIO DO SERVIDOR
 app.listen(3000, () => {
   console.log("Servidor rodando na porta 3000");
