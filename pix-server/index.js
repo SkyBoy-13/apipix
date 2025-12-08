@@ -70,9 +70,9 @@ app.post("/gerar-pix", async (req, res) => {
 
 
 
-   // 3️⃣ SEGUNDA MENSAGEM — BOTÃO COPIAR PIX
+   // 3️⃣ BOTÃO CORRIGIDO
 await axios.post(
-  `https://apiz.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-button`,
+  `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-button`,
   {
     phone: phoneClean,
     message: "Clique abaixo para copiar o código PIX:",
@@ -80,7 +80,7 @@ await axios.post(
       {
         type: "reply",
         id: "copiar_pix",
-        text: " COPIAR CÓDIGO PIX"
+        text: "📋 COPIAR CÓDIGO PIX"
       }
     ]
   },
