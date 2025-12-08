@@ -7,6 +7,12 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+// 🔥 Logger para ver requisições na Fly.io
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // Gera PIX (BuckPay) e envia no WhatsApp com botão
 app.post("/gerar-pix", async (req, res) => {
   try {
