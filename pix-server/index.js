@@ -13,6 +13,8 @@ app.use((req, res, next) => {
   next();
 });
 
+
+
 // Gera PIX (BuckPay) e envia no WhatsApp com botão
 app.post("/gerar-pix", async (req, res) => {
   try {
@@ -74,7 +76,8 @@ app.post("/gerar-pix", async (req, res) => {
   }
 );
 
-
+// ⏳ AQUI! — Delay obrigatório antes do botão
+await new Promise(resolve => setTimeout(resolve, 300));
 
    // 3️⃣ BOTÃO CORRIGIDO
 await axios.post(
