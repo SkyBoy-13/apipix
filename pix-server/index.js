@@ -159,19 +159,24 @@ const txid = evento.data?.txid;
       console.log("📦 Produto enviado ao cliente:", phone);
     }
 
+    // ✓ 2 – AVISAR A FIQON QUE O PIX FOI CONFIRMADO
+await axios.post(
+  "https://webhook.fiqon.app/webhook/019af202-ce70-7360-940e-c260f9accc79/cc40de47-b883-4c68-85e3-446b00d7448e",
+  {
+    status: "confirmed",
+    phone: phone,
+    txid: txid
+  },
+  {
+    headers: {
+      "Content-Type": "application/json"
+    }
+  }
+);
+
+console.log("🚀 Notificação enviada para Fiqon!");
+
     
-    // ✔ 2 — AVISAR A FIQON QUE O PIX FOI CONFIRMADO
-    await axios.post(
-        "https://webhook.fiqon.app/webhook/019af202-ce70-7360-940e-c260f9accc79/cc40de47-b883-4c68-85e3-446b00d7448e",
-        {
-            status: "confirmed",
-            phone: phone,
-            txid: txid
-        }
-    );
-
-    console.log("🚀 Notificação enviada para Fiqon!");
-
     res.sendStatus(200);
 
   } catch (err) {
