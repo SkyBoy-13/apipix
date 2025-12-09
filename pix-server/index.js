@@ -126,10 +126,16 @@ app.post("/webhook-pix", async (req, res) => {
   console.log("📡 WEBHOOK PIX RECEBIDO:", req.body);
 
   try {
+  
     const evento = req.body;
-    const status = evento?.data?.status;
-    const txid = evento?.data?.txid;
-    const phone = evento?.data?.customer?.phone;
+
+// BuckPay envia assim: data.status e data.customer.phone
+const status = evento.data?.status;
+const phone = evento.data?.customer?.phone;
+
+// BuckPay não envia TXID no webhook → ficará undefined mesmo
+const txid = evento.data?.txid;
+
 
     // 💰 Quando o pagamento for confirmado:
     if (status === "confirmed") {
@@ -152,6 +158,19 @@ app.post("/webhook-pix", async (req, res) => {
 
       console.log("📦 Produto enviado ao cliente:", phone);
     }
+
+    
+    // ✔ 2 — AVISAR A FIQON QUE O PIX FOI CONFIRMADO
+    await axios.post(
+        "https://webhook.fiqon.app/webhook/019af202-ce70-7360-940e-c260f9accc79/cc40de47-b883-4c68-85e3-446b00d7448e",
+        {
+            status: "confirmed",
+            phone: phone,
+            txid: txid
+        }
+    );
+
+    console.log("🚀 Notificação enviada para Fiqon!");
 
     res.sendStatus(200);
 
