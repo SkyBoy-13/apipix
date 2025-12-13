@@ -1,11 +1,21 @@
 import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
+import crypto from "crypto";
+
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
+
+function hash(value) {
+  return crypto
+    .createHash("sha256")
+    .update(value.trim().toLowerCase())
+    .digest("hex");
+}
+
 
 // 🔥 Logger para ver requisições na Fly.io
 app.use((req, res, next) => {
@@ -157,6 +167,42 @@ const txid = evento.data?.txid;
       );
 
       console.log("📦 Produto enviado ao cliente:", phone);
+
+      // 🔥 META CONVERSION API — PURCHASE
+try {
+  await axios.post(
+    `https://graph.facebook.com/v18.0/${process.env.META_PIXEL_ID}/events`,
+    {
+      data: [
+        {
+          event_name: "Purchase",
+          event_time: Math.floor(Date.now() / 1000),
+          action_source: "https://cacausho.online/",
+          event_id: txid || `pix-${Date.now()}`,
+          user_data: {
+            // 👉 É AQUI QUE ENTRA O ph
+            ph: phone ? hash(phone) : undefined
+          },
+          custom_data: {
+            value: Number(evento.data.amount) / 100,
+            currency: "BRL"
+          }
+        }
+      ]
+    },
+    {
+      params: {
+        access_token: process.env.META_ACCESS_TOKEN
+      }
+    }
+  );
+
+  console.log("📊 Purchase enviado ao Meta");
+} catch (err) {
+  console.log("❌ Erro Meta CAPI:", err.response?.data || err.message);
+}
+
+
     }
 
     // ✓ 2 – AVISAR A FIQON QUE O PIX FOI CONFIRMADO
