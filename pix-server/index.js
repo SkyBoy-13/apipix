@@ -166,7 +166,7 @@ await axios.post(
     statuspg: "confirmed",
     phone: phone,
     txid: txid,
-    text: "TESTE OK"
+    message: "TESTE OK"
   },
   {
     headers: {
