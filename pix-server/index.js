@@ -166,7 +166,6 @@ await axios.post(
     statuspg: "confirmed",
     phone: phone,
     txid: txid,
-    text: { message: "pagamento confirmado" }
   },
   {
     headers: {
