@@ -16,45 +16,36 @@ function hash(value) {
     .digest("hex");
 }
 
-// 🔥 LOGGER
+// 🔥 LOG
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-
-// ======================================================
-// 🚀 GERAR PIX — SOMENTE CRIA A TRANSAÇÃO
-// ======================================================
+// ================================
+// 🚀 GERAR PIX (IGUAL AO BUCKPAY)
+// ================================
 app.post("/gerar-pix", async (req, res) => {
-  console.log("🔥 USANDO MASTERFY 🔥");
+  console.log("📥 REQ BODY RECEBIDO:", req.body);
 
   try {
-    const { valor, nome, email, documento, telefone } = req.body;
+    const { valor, nome, email, telefone } = req.body;
 
-    // ✅ GARANTE QUE TELEFONE EXISTE
     if (!telefone) {
-      return res.status(400).json({
-        success: false,
-        error: "Telefone é obrigatório"
-      });
+      return res.status(400).json({ erro: "Telefone é obrigatório" });
     }
 
-    // ✅ LIMPA O TELEFONE (IGUAL AO CÓDIGO ANTIGO, MAS SEGURO)
-    const phoneClean =
-      typeof telefone === "string"
-        ? telefone.replace(/\D/g, "")
-        : "";
-
     const amount = Math.round(Number(valor) * 100);
+    const phoneClean = telefone.replace(/\D/g, "");
 
-
+    // 🔥 MASTERFY – CRIA PIX
     const resposta = await axios.post(
       "https://api.masterfy.com.br/api/public/v1/transactions",
       {
         api_token: process.env.MASTERFY_API_TOKEN,
         offer_hash: process.env.MASTERFY_OFFER_HASH,
-        amount,
+
+        amount: amount,
         payment_method: "pix",
         installments: 1,
 
@@ -62,7 +53,7 @@ app.post("/gerar-pix", async (req, res) => {
           name: nome,
           email: email,
           phone_number: phoneClean,
-          document: "21582041687" // CPF fixo
+          document: "11144477735" // CPF FIXO
         },
 
         cart: [
@@ -87,29 +78,73 @@ app.post("/gerar-pix", async (req, res) => {
       }
     );
 
-    return res.status(200).json({
-      success: true,
-      gateway: "masterfy",
-      transaction_id: resposta.data.transaction.id,
-      status: resposta.data.transaction.status
+    const transaction = resposta.data;
+    const copiaecola = transaction.pix.pix_qr_code;
+    const txid = transaction.hash;
+
+    // ================================
+    // 📲 ENVIA PIX NO WHATSAPP (Z-API)
+    // ================================
+    await axios.post(
+      `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
+      {
+        phone: phoneClean,
+        message:
+          `👋 Olá, ${nome}!\n\n` +
+          `Aqui está seu PIX para pagamento:\n\n` +
+          `💰 Valor: R$ ${(amount / 100).toFixed(2)}\n` +
+          `🧾 TXID: ${txid}\n\n` +
+          `📋 Código Copia e Cola:\n\n${copiaecola}`
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Client-Token": process.env.ZAPI_CLIENT_TOKEN
+        }
+      }
+    );
+
+    // ⏳ DELAY
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // 🔘 BOTÃO COPIAR
+    await axios.post(
+      `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-button`,
+      {
+        phone: phoneClean,
+        message: "Clique abaixo para copiar o código PIX:",
+        buttons: [
+          {
+            type: "reply",
+            id: "copiar_pix",
+            text: "📋 COPIAR CÓDIGO PIX"
+          }
+        ]
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Client-Token": process.env.ZAPI_CLIENT_TOKEN
+        }
+      }
+    );
+
+    return res.json({
+      status: transaction.payment_status,
+      copiaecola,
+      txid
     });
 
   } catch (err) {
-    console.error("❌ ERRO MASTERFY");
-    console.error(err.response?.data || err.message);
-
-    return res.status(500).json({
-      success: false,
-      gateway: "masterfy",
-      error: err.response?.data || err.message
-    });
+    console.log("❌ ERRO MASTERFY/Z-API:");
+    console.log(err.response?.data || err.message);
+    return res.status(500).json({ erro: "Falha ao gerar PIX" });
   }
 });
 
-
-// ======================================================
-// 📡 WEBHOOK PIX — AQUI VEM QR CODE, STATUS, CONFIRMAÇÃO
-// ======================================================
+// =================================
+// 📡 WEBHOOK PIX (CONFIRMAÇÃO)
+// =================================
 app.post("/webhook-pix", async (req, res) => {
   console.log("📡 WEBHOOK PIX RECEBIDO:", req.body);
 
@@ -120,33 +155,13 @@ app.post("/webhook-pix", async (req, res) => {
     const phone = evento.customer?.phone_number;
     const txid = evento.hash;
 
-    // 🔔 QUANDO GERAR PIX (waiting_payment)
-    if (status === "waiting_payment" && evento.pix?.pix_qr_code) {
+    if (status === "approved") {
+      // 📦 ENTREGA PRODUTO
       await axios.post(
         `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
         {
-          phone,
-          message:
-            `💰 *PIX GERADO*\n\n` +
-            `Valor: R$ ${(evento.amount / 100).toFixed(2)}\n\n` +
-            `🔻 *Copia e Cola:*\n\n${evento.pix.pix_qr_code}`
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "Client-Token": process.env.ZAPI_CLIENT_TOKEN
-          }
-        }
-      );
-    }
-
-    // ✅ PAGAMENTO CONFIRMADO
-    if (status === "confirmed") {
-      await axios.post(
-        `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
-        {
-          phone,
-          message: "🎉 Pagamento confirmado! Aqui está seu produto."
+          phone: phone,
+          message: "🎉 Pagamento aprovado! Aqui está seu produto..."
         },
         {
           headers: {
@@ -156,7 +171,7 @@ app.post("/webhook-pix", async (req, res) => {
         }
       );
 
-      // 🔥 META CAPI
+      // 📊 META PURCHASE
       await axios.post(
         `https://graph.facebook.com/v18.0/${process.env.META_PIXEL_ID}/events`,
         {
@@ -182,35 +197,27 @@ app.post("/webhook-pix", async (req, res) => {
           }
         }
       );
-
-      // 🚀 FIQON
-      await axios.post(
-        "https://webhook.fiqon.app/webhook/019b04ee-7d51-725e-a1c3-a4f406cdc941/e31617cd-5ae2-49ed-9d70-a6a9592045c6",
-        {
-          statuspg: "confirmed",
-          phone,
-          txid
-        },
-        {
-          headers: { "Content-Type": "application/json" }
-        }
-      );
     }
 
-    return res.sendStatus(200);
+    // 🔁 AVISA FIQON
+    await axios.post(
+      "https://webhook.fiqon.app/webhook/SEU-ID-AQUI",
+      {
+        statuspg: status,
+        phone: phone,
+        txid: txid
+      }
+    );
 
+    res.sendStatus(200);
   } catch (err) {
-    console.error("❌ ERRO WEBHOOK:", err.response?.data || err.message);
-    return res.sendStatus(500);
+    console.log("❌ ERRO WEBHOOK:", err.response?.data || err.message);
+    res.sendStatus(500);
   }
 });
 
-
-// ======================================================
-// ▶️ START SERVER
-// ======================================================
+// 🚀 START
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, "0.0.0.0", () => {
   console.log("Servidor rodando na porta", PORT);
 });
