@@ -67,7 +67,7 @@ app.post("/gerar-pix", async (req, res) => {
           }
         ],
 
-        postback_url: process.env.MASTERFY_WEBHOOK,
+        postback_url: "https://pix-server.fly.dev/webhook-pix",
         transaction_origin: "api"
       },
       {
