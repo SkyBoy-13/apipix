@@ -30,9 +30,24 @@ app.post("/gerar-pix", async (req, res) => {
   console.log("🔥 USANDO MASTERFY 🔥");
 
   try {
-    const { valor, nome, email, telefone } = req.body;
+    const { valor, nome, email, documento, telefone } = req.body;
+
+    // ✅ GARANTE QUE TELEFONE EXISTE
+    if (!telefone) {
+      return res.status(400).json({
+        success: false,
+        error: "Telefone é obrigatório"
+      });
+    }
+
+    // ✅ LIMPA O TELEFONE (IGUAL AO CÓDIGO ANTIGO, MAS SEGURO)
+    const phoneClean =
+      typeof telefone === "string"
+        ? telefone.replace(/\D/g, "")
+        : "";
 
     const amount = Math.round(Number(valor) * 100);
+
 
     const resposta = await axios.post(
       "https://api.masterfy.com.br/api/public/v1/transactions",
@@ -46,7 +61,7 @@ app.post("/gerar-pix", async (req, res) => {
         customer: {
           name: nome,
           email: email,
-          phone_number: telefone.replace(/\D/g, ""),
+          phone_number: phoneClean
           document: "21582041687" // CPF fixo
         },
 
