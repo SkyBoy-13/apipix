@@ -10,6 +10,7 @@ const app = express();
 app.use(express.json());
 
 
+
 function hash(value) {
   return crypto
     .createHash("sha256")
@@ -38,37 +39,55 @@ app.post("/gerar-pix", async (req, res) => {
   try {
     const { valor, nome, email, documento, telefone } = req.body;
 
-    const amount = Math.round(Number(valor) * 100);
 
-    const buyer = { name: nome, email: email };
 
-    if (documento) buyer.document = documento;
-    if (telefone) buyer.phone = telefone;
 
+    // 1️⃣ MASTERFY – criação do PIX
     const payload = {
-      external_id: "pedido-" + Date.now(),
-      payment_method: "pix",
-      amount,
-      buyer
-    };
+  amount,
+  offer_hash: process.env.MASTERFY_OFFER_HASH,
+  payment_method: "pix",
 
-    // 1️⃣ BUCKPAY – criação do PIX
-    const resposta = await axios.post(
-      "https://api.realtechdev.com.br/v1/transactions",
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.BUCKPAY_TOKEN}`,
-          "Content-Type": "application/json",
-          "user-agent": "Buckpay API"
-        }
-      }
-    );
+  customer: {
+    name: nome,
+    email: email,
+    phone_number: telefone.replace(/\D/g, ""),
+    document: documento.replace(/\D/g, "")
+  },
 
-    const data = resposta.data.data;
-    const copiaecola = data.pix.code;
-    const qrcodeBase64 = data.pix.qrcode_base64;
-    const txid = data.id;
+  cart: [
+    {
+      product_hash: process.env.MASTERFY_OFFER_HASH,
+      title: "Produto Digital",
+      price: amount,
+      quantity: 1,
+      operation_type: 1,
+      tangible: false
+    }
+  ],
+
+  postback_url: process.env.MASTERFY_WEBHOOK,
+  transaction_origin: "api"
+};
+
+const resposta = await axios.post(
+  `https://api.masterfy.com.br/api/public/v1/transactions?api_token=${process.env.MASTERFY_API_TOKEN}`,
+  payload,
+  {
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    }
+  }
+);
+
+
+    const data = resposta.data.transaction;
+
+const copiaecola = data.pix.code;
+const qrcodeBase64 = data.pix.qrcode_base64;
+const txid = data.hash; // ID da transação MasterFy
+
 
     const phoneClean = telefone.replace(/\D/g, "");
 
