@@ -28,6 +28,8 @@ app.use((req, res, next) => {
 
 // Gera PIX (BuckPay) e envia no WhatsApp com botão
 app.post("/gerar-pix", async (req, res) => {
+  console.log("🔥 USANDO MASTERFY 🔥");
+
   try {
     const { valor, nome, email, documento, telefone } = req.body;
 
@@ -36,8 +38,9 @@ const amount = Math.round(Number(valor) * 100);
 
 
     // 1️⃣ MASTERFY – criação do PIX
-    const payload = {
+  const payload = {
   amount,
+ 
   offer_hash: process.env.MASTERFY_OFFER_HASH,
   payment_method: "pix",
 
@@ -54,6 +57,7 @@ const amount = Math.round(Number(valor) * 100);
       title: "Produto Digital",
       price: amount,
       quantity: 1,
+      installments: 1, // 🔥 OBRIGATÓRIO NA MASTERFY (mesmo no PIX)
       operation_type: 1,
       tangible: false
     }
@@ -108,20 +112,28 @@ const txid = data.hash; // ID da transação MasterFy
 
 
 // 4 RETORNO DA API
-return res.json({
-  status: data.status,
-  copiaecola,
-  qrcode: qrcodeBase64,
-  txid
+return res.status(200).json({
+      success: true,
+      gateway: "masterfy",
+      transaction
+    });
+
+  } catch (err) {
+    // ❌ ERRO REAL (SEM MASCARAR)
+    console.error("❌ ERRO MASTERFY");
+    console.error("STATUS:", err.response?.status);
+    console.error("DATA:", err.response?.data);
+    console.error("MESSAGE:", err.message);
+
+    return res.status(500).json({
+      success: false,
+      gateway: "masterfy",
+      error: err.response?.data || err.message
+    });
+  }
 });
 
-} catch (err) {
-  console.log("❌ ERRO NA BUCKPAY/Z-API:");
-  console.log(JSON.stringify(err.response?.data || err, null, 2));
-  return res.status(500).json({ erro: "Falha ao gerar PIX" });
-}
 
-}); // ← FECHA A ROTA app.post("/gerar-pix")
 
 
 // 📡 WEBHOOK DO PIX — BuckPay chama essa rota quando o pagamento é confirmado
