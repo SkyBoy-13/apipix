@@ -35,7 +35,6 @@ app.post("/gerar-pix", async (req, res) => {
 
 // Gera PIX (BuckPay) e envia no WhatsApp com botão
 app.post("/gerar-pix", async (req, res) => {
- (:tada: Commit Inicial)
   try {
     const { valor, nome, email, documento, telefone } = req.body;
 
