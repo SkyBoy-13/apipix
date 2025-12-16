@@ -26,19 +26,13 @@ app.use((req, res, next) => {
 });
 
 
-
-// Gera PIX (BuckPay) e envia no WhatsApp com botão
-app.post("/gerar-pix", async (req, res) => {
-
-  console.log("📥 REQ BODY RECEBIDO:", req.body);
-
-
 // Gera PIX (BuckPay) e envia no WhatsApp com botão
 app.post("/gerar-pix", async (req, res) => {
   try {
     const { valor, nome, email, documento, telefone } = req.body;
 
 
+const amount = Math.round(Number(valor) * 100);
 
 
     // 1️⃣ MASTERFY – criação do PIX
@@ -103,39 +97,6 @@ const txid = data.hash; // ID da transação MasterFy
       `🧾 TXID: ${txid}\n\n` +
       `🔻 Código Copia e Cola (use o botão abaixo):\n\n` +
       `${copiaecola}`
-  },
-  {
-    headers: {
-      "Content-Type": "application/json",
-      "Client-Token": process.env.ZAPI_CLIENT_TOKEN
-    }
-  }
-);
-
-
-// ⏳ AQUI! — Delay obrigatório antes do botão
-await new Promise(resolve => setTimeout(resolve, 300));
-
-   // 3️⃣ BOTÃO CORRIGIDO
-await axios.post(
-  `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-button`,
-
-
-
-   // 3️⃣ SEGUNDA MENSAGEM — BOTÃO COPIAR PIX
-await axios.post(
-  `https://apiz.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-button`,
-
-  {
-    phone: phoneClean,
-    message: "Clique abaixo para copiar o código PIX:",
-    buttons: [
-      {
-        type: "reply",
-        id: "copiar_pix",
-        text: "📋 COPIAR CÓDIGO PIX"
-      }
-    ]
   },
   {
     headers: {
@@ -270,3 +231,4 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log("Servidor rodando na porta", PORT);
+});
