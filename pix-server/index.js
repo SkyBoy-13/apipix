@@ -75,15 +75,45 @@ app.post("/gerar-pix", async (req, res) => {
 };
 
 const resposta = await axios.post(
-  `https://api.masterfy.com.br/api/public/v1/transactions?api_token=${process.env.MASTERFY_API_TOKEN}`,
-  payload,
+  `https://api.masterfy.com.br/api/public/v1/transactions`,
+  {
+    data: {
+      amount: amount,
+      installments: 1,
+      payment_method: "pix",
+      offer_hash: process.env.MASTERFY_OFFER_HASH,
+
+      customer: {
+        name: nome,
+        email: email,
+        phone_number: telefone.replace(/\D/g, ""),
+        document: "21582041687" // CPF fixo OK
+      },
+
+      cart: [
+        {
+          product_hash: process.env.MASTERFY_OFFER_HASH,
+          title: "Produto Digital",
+          price: amount,
+          quantity: 1,
+          operation_type: 1,
+          tangible: false
+        }
+      ],
+
+      postback_url: process.env.MASTERFY_WEBHOOK,
+      transaction_origin: "api"
+    }
+  },
   {
     headers: {
+      "Authorization": `Bearer ${process.env.MASTERFY_API_TOKEN}`,
       "Content-Type": "application/json",
       "Accept": "application/json"
     }
   }
 );
+
 
 
     const data = resposta.data.transaction;
