@@ -1,11 +1,14 @@
 {
   "name": "pix-server",
   "version": "1.0.0",
-  "main": "index.js",
   "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
-    "axios": "^1.6.7",
-    "express": "^4.18.2",
-    "dotenv": "^16.0.3"
+    "express": "^4.19.2",
+    "axios": "^1.6.8",
+    "dotenv": "^16.4.5"
   }
 }

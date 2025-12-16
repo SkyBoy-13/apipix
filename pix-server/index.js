@@ -26,29 +26,38 @@ app.use((req, res, next) => {
 });
 
 
-// Gera PIX (BuckPay) e envia no WhatsApp com botão
+// Gera PIX  
 app.post("/gerar-pix", async (req, res) => {
   console.log("🔥 USANDO MASTERFY 🔥");
 
   try {
     const { valor, nome, email, documento, telefone } = req.body;
 
+    const docClean = documento
+  ? documento.replace(/\D/g, "")
+  : "11144477735"; // CPF FIXO DEFAULT
 
-const amount = Math.round(Number(valor) * 100);
+
+
+    const amount = Math.round(Number(valor) * 100);
 
 
     // 1️⃣ MASTERFY – criação do PIX
-  const payload = {
-  amount,
- 
+ const payload = {
+  transaction: {
+    amount: amount,
+    installments: 1,
+    payment_method: "pix",
+    transaction_origin: "api"
+  },
+
   offer_hash: process.env.MASTERFY_OFFER_HASH,
-  payment_method: "pix",
 
   customer: {
     name: nome,
     email: email,
     phone_number: telefone.replace(/\D/g, ""),
-    document: documento.replace(/\D/g, "")
+    document: "11144477735" // CPF fixo OK
   },
 
   cart: [
@@ -57,14 +66,12 @@ const amount = Math.round(Number(valor) * 100);
       title: "Produto Digital",
       price: amount,
       quantity: 1,
-      installments: 1, // 🔥 OBRIGATÓRIO NA MASTERFY (mesmo no PIX)
       operation_type: 1,
       tangible: false
     }
   ],
 
-  postback_url: process.env.MASTERFY_WEBHOOK,
-  transaction_origin: "api"
+  postback_url: process.env.MASTERFY_WEBHOOK
 };
 
 const resposta = await axios.post(
