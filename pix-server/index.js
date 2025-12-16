@@ -61,7 +61,7 @@ app.post("/gerar-pix", async (req, res) => {
         customer: {
           name: nome,
           email: email,
-          phone_number: phoneClean
+          phone_number: phoneClean,
           document: "21582041687" // CPF fixo
         },
 
