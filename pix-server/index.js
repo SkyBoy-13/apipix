@@ -43,76 +43,47 @@ app.post("/gerar-pix", async (req, res) => {
 
 
     // 1️⃣ MASTERFY – criação do PIX
- const payload = {
-  transaction: {
-    amount: amount,
-    installments: 1,
-    payment_method: "pix",
-    transaction_origin: "api"
-  },
-
-  offer_hash: process.env.MASTERFY_OFFER_HASH,
-
-  customer: {
-    name: nome,
-    email: email,
-    phone_number: telefone.replace(/\D/g, ""),
-    document: "11144477735" // CPF fixo OK
-  },
-
-  cart: [
-    {
-      product_hash: process.env.MASTERFY_OFFER_HASH,
-      title: "Produto Digital",
-      price: amount,
-      quantity: 1,
-      operation_type: 1,
-      tangible: false
-    }
-  ],
-
-  postback_url: process.env.MASTERFY_WEBHOOK
-};
 
 const resposta = await axios.post(
-  `https://api.masterfy.com.br/api/public/v1/transactions`,
+  "https://api.masterfy.com.br/api/public/v1/transactions",
   {
-    data: {
-      amount: amount,
-      installments: 1,
-      payment_method: "pix",
-      offer_hash: process.env.MASTERFY_OFFER_HASH,
+    api_token: process.env.MASTERFY_API_TOKEN,
 
-      customer: {
-        name: nome,
-        email: email,
-        phone_number: telefone.replace(/\D/g, ""),
-        document: "21582041687" // CPF fixo OK
-      },
+    offer_hash: process.env.MASTERFY_OFFER_HASH,
 
-      cart: [
-        {
-          product_hash: process.env.MASTERFY_OFFER_HASH,
-          title: "Produto Digital",
-          price: amount,
-          quantity: 1,
-          operation_type: 1,
-          tangible: false
-        }
-      ],
+    amount: amount,
+    payment_method: "pix",
+    installments: 1,
 
-      postback_url: process.env.MASTERFY_WEBHOOK,
-      transaction_origin: "api"
-    }
+    customer: {
+      name: nome,
+      email: email,
+      phone_number: telefone.replace(/\D/g, ""),
+      document: "21582041687" // CPF fixo OK
+    },
+
+    cart: [
+      {
+        product_hash: process.env.MASTERFY_OFFER_HASH,
+        title: "Produto Digital",
+        price: amount,
+        quantity: 1,
+        operation_type: 1,
+        tangible: false
+      }
+    ],
+
+    postback_url: process.env.MASTERFY_WEBHOOK,
+    transaction_origin: "api"
   },
   {
     headers: {
-      "Authorization": `Bearer ${process.env.MASTERFY_API_TOKEN}`,
       "Content-Type": "application/json",
       "Accept": "application/json"
     }
   }
 );
+
 
 
 
@@ -150,10 +121,10 @@ const txid = data.hash; // ID da transação MasterFy
 
 // 4 RETORNO DA API
 return res.status(200).json({
-      success: true,
-      gateway: "masterfy",
-      transaction
-    });
+  success: true,
+  gateway: "masterfy",
+  transaction: resposta.data.transaction
+});
 
   } catch (err) {
     // ❌ ERRO REAL (SEM MASCARAR)
