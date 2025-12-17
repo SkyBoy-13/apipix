@@ -156,10 +156,21 @@ app.post("/webhook-pix", async (req, res) => {
     const txid = evento.transaction || evento.hash;
 
      // 🚫 BLOQUEIA QUALQUER STATUS QUE NÃO SEJA CONFIRMADO
-    if (status !== "confirmed" && status !== "approved") {
-      console.log("⏳ Pagamento ainda não confirmado:", status);
-      return res.sendStatus(200);
-    }
+    const paymentStatus = evento.payment_status;
+    const internalStatus = evento.status;
+
+    const pagamentoConfirmado =
+      paymentStatus === "paid" ||
+      paymentStatus === "approved" ||
+      internalStatus === 1;
+
+  if (!pagamentoConfirmado) {
+    console.log("⏳ PIX ainda pendente:", paymentStatus);
+    return res.sendStatus(200);
+}
+
+console.log("🎉 PIX CONFIRMADO:", paymentStatus);
+
 
       // 📦 ENTREGA PRODUTO
       await axios.post(
