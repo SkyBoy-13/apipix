@@ -153,9 +153,9 @@ app.post("/webhook-pix", async (req, res) => {
 
     const status = evento.payment_status;
     const phone = evento.customer?.phone_number;
-    const txid = evento.hash;
+    const txid = evento.transaction || evento.hash;
 
-    if (status === "approved") {
+    if (status === "confirmed") {
       // 📦 ENTREGA PRODUTO
       await axios.post(
         `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
@@ -198,22 +198,25 @@ app.post("/webhook-pix", async (req, res) => {
         }
       );
     }
-
-    // 🔁 AVISA FIQON
-    await axios.post(
-      "https://webhook.fiqon.app/webhook/019b04ee-7d51-725e-a1c3-a4f406cdc941/e31617cd-5ae2-49ed-9d70-a6a9592045c6",
-      {
-        statuspg: status,
-        phone: phone,
-        txid: txid
-      }
-    );
-
-    res.sendStatus(200);
-  } catch (err) {
-    console.log("❌ ERRO WEBHOOK:", err.response?.data || err.message);
-    res.sendStatus(500);
+         // FIQON – AVISA FLUXO
+await axios.post(
+  "https://webhook.fiqon.app/webhook/019b04ee-7d51-725e-a1c3-a4f406cdc941/e31617cd-5ae2-49ed-9d70-a6a9592045c6",
+  {
+    statuspg: "confirmed",
+    phone,
+    txid
+  },
+  {
+    headers: { "Content-Type": "application/json" }
   }
+);
+
+res.sendStatus(200);
+
+} catch (err) {
+  console.log("❌ ERRO WEBHOOK:", err.response?.data || err.message);
+  res.sendStatus(500);
+}
 });
 
 // 🚀 START
