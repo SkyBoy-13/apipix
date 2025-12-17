@@ -155,7 +155,12 @@ app.post("/webhook-pix", async (req, res) => {
     const phone = evento.customer?.phone_number;
     const txid = evento.transaction || evento.hash;
 
-    if (status === "confirmed") {
+     // 🚫 BLOQUEIA QUALQUER STATUS QUE NÃO SEJA CONFIRMADO
+    if (status !== "confirmed" && status !== "approved") {
+      console.log("⏳ Pagamento ainda não confirmado:", status);
+      return res.sendStatus(200);
+    }
+
       // 📦 ENTREGA PRODUTO
       await axios.post(
         `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
@@ -197,26 +202,26 @@ app.post("/webhook-pix", async (req, res) => {
           }
         }
       );
-    }
-         // FIQON – AVISA FLUXO
-await axios.post(
-  "https://webhook.fiqon.app/webhook/019b04ee-7d51-725e-a1c3-a4f406cdc941/e31617cd-5ae2-49ed-9d70-a6a9592045c6",
-  {
-    statuspg: "confirmed",
-    phone,
-    txid
-  },
-  {
-    headers: { "Content-Type": "application/json" }
+
+    // FIQON – AVISA FLUXO
+    await axios.post(
+      "https://webhook.fiqon.app/webhook/019b04ee-7d51-725e-a1c3-a4f406cdc941/e31617cd-5ae2-49ed-9d70-a6a9592045c6",
+      {
+        statuspg: "confirmed",
+        phone,
+        txid
+      },
+      {
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    res.sendStatus(200);
+
+  } catch (err) {
+    console.log("❌ ERRO WEBHOOK:", err.response?.data || err.message);
+    res.sendStatus(500);
   }
-);
-
-res.sendStatus(200);
-
-} catch (err) {
-  console.log("❌ ERRO WEBHOOK:", err.response?.data || err.message);
-  res.sendStatus(500);
-}
 });
 
 // 🚀 START
