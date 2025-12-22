@@ -156,20 +156,25 @@ app.post("/webhook-pix", async (req, res) => {
   console.log("📡 WEBHOOK PIX RECEBIDO:", req.body);
 
   try {
-    const evento = req.body;
+    const data = req.body.data || req.body;
 
-    const status = evento.payment_status;
-    const phone = evento.customer?.phone_number;
-    const txid = evento.transaction || evento.hash;
+const pagamentoConfirmado =
+  data.status === "confirmed" ||
+  data.statuspg === "confirmed" ||
+  data.payment_status === "paid" ||
+  data.payment_status === "approved";
 
-     // 🚫 BLOQUEIA QUALQUER STATUS QUE NÃO SEJA CONFIRMADO
-    const paymentStatus = evento.payment_status;
-    const internalStatus = evento.status;
+if (!pagamentoConfirmado) {
+  console.log("⏳ PIX ainda pendente");
+  return res.sendStatus(200);
+}
 
-    const pagamentoConfirmado =
-      paymentStatus === "paid" ||
-      paymentStatus === "approved" ||
-      internalStatus === 1;
+const phone =
+  data.customer?.phone ||
+  data.customer?.phone_number;
+
+const txid = data.transaction || data.hash;
+
 
   if (!pagamentoConfirmado) {
     console.log("⏳ PIX ainda pendente:", paymentStatus);
@@ -179,20 +184,22 @@ app.post("/webhook-pix", async (req, res) => {
 console.log("🎉 PIX CONFIRMADO:", paymentStatus);
 
 
-      // 📦 ENTREGA PRODUTO
-      await axios.post(
-        `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
-        {
-          phone: phone,
-          message: "🎉 Pagamento aprovado! Aqui está seu produto..."
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "Client-Token": process.env.ZAPI_CLIENT_TOKEN
-          }
-        }
-      );
+     // 🚀 AVISA O BOTPRO PARA DISPARAR O FLUXO DE ENTREGA
+await axios.post(
+  "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBe0xgUvQZzly",
+  {
+    celular: phone,
+    status: "confirmed",
+    txid: txid
+  },
+  {
+    headers: {
+      "Content-Type": "application/json"
+    }
+  }
+);
+
+  
 
       // 📊 META PURCHASE
       await axios.post(
