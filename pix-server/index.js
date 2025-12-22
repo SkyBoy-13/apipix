@@ -216,7 +216,7 @@ console.log("🎉 PIX CONFIRMADO:", paymentStatus);
 
     // 🤖 BOTPRO – DISPARA FLUXO
 await axios.post(
-  "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBeOxgUvQZzIy",
+  "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBe0xgUvQZzly",
   {
     celular: phone,
     nome: evento.customer?.name || "Cliente",
