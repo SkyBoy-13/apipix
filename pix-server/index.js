@@ -184,7 +184,7 @@ const txid = data.transaction || data.hash;
 console.log("🎉 PIX CONFIRMADO:", paymentStatus);
 
 
-     // 🚀 AVISA O BOTPRO PARA DISPARAR O FLUXO DE ENTREGA
+     // � AVISA O BOTPRO PARA DISPARAR O FLUXO DE ENTREGA
 await axios.post(
   "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBe0xgUvQZzly",
   {
