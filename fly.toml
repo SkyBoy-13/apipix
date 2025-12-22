@@ -1,19 +1,21 @@
-# fly.toml app configuration file generated for pgsql-nameless-pine-546 on 2025-12-08T11:30:16-03:00
+# fly.toml app configuration file generated for pix-servernew on 2025-12-12T21:33:41-03:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'pgsql-nameless-pine-546'
+app = 'pix-server'
 primary_region = 'gru'
 
 [build]
-  dockerfile = "Dockerfile"
+  builder = "paketobuildpacks/builder:base"
 
+[env]
+  PORT = "3000"
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = true
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app']
