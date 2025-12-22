@@ -31,12 +31,15 @@ app.post("/gerar-pix", async (req, res) => {
   try {
     const { valor, nome, email, telefone } = req.body;
 
-    if (!telefone) {
-      return res.status(400).json({ erro: "Telefone é obrigatório" });
-    }
+   const phoneRaw = telefone || "";
+  const phoneClean = phoneRaw.replace(/\D/g, "");
 
-    const amount = Math.round(Number(valor) * 100);
-    const phoneClean = telefone.replace(/\D/g, "");
+  if (!phoneClean || phoneClean.length < 10) {
+  return res.status(400).json({ erro: "Telefone inválido ou vazio" });
+  }
+
+  const amount = Math.round(Number(valor) * 100);
+
 
     // 🔥 MASTERFY – CRIA PIX
     const resposta = await axios.post(
@@ -85,7 +88,7 @@ app.post("/gerar-pix", async (req, res) => {
     // ================================
     // 📲 ENVIA PIX NO WHATSAPP (Z-API)
     // ================================
-    await axios.post(
+   /*await axios.post(
       `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
       {
         phone: phoneClean,
@@ -103,6 +106,8 @@ app.post("/gerar-pix", async (req, res) => {
         }
       }
     );
+
+      
 
     // ⏳ DELAY
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -128,6 +133,8 @@ app.post("/gerar-pix", async (req, res) => {
         }
       }
     );
+
+    */
 
     return res.json({
       status: transaction.payment_status,
