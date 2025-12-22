@@ -214,18 +214,20 @@ console.log("🎉 PIX CONFIRMADO:", paymentStatus);
         }
       );
 
-    // FIQON – AVISA FLUXO
-    await axios.post(
-      "https://webhook.fiqon.app/webhook/019b04ee-7d51-725e-a1c3-a4f406cdc941/e31617cd-5ae2-49ed-9d70-a6a9592045c6",
-      {
-        statuspg: "confirmed",
-        phone,
-        txid
-      },
-      {
-        headers: { "Content-Type": "application/json" }
-      }
-    );
+    // 🤖 BOTPRO – DISPARA FLUXO
+await axios.post(
+  "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBeOxgUvQZzIy",
+  {
+    celular: phone,
+    nome: evento.customer?.name || "Cliente",
+    mensagem: "🎉 Pagamento confirmado! Seu acesso será liberado agora."
+  },
+  {
+    headers: {
+      "Content-Type": "application/json"
+    }
+  }
+);
 
     res.sendStatus(200);
 
