@@ -158,98 +158,95 @@ app.post("/webhook-pix", async (req, res) => {
   try {
     const data = req.body.data || req.body;
 
-const pagamentoConfirmado =
-  data.status === "confirmed" ||
-  data.statuspg === "confirmed" ||
-  data.payment_status === "paid" ||
-  data.payment_status === "approved";
+    const pagamentoConfirmado =
+      data.status === "confirmed" ||
+      data.statuspg === "confirmed" ||
+      data.payment_status === "paid" ||
+      data.payment_status === "approved";
 
-if (!pagamentoConfirmado) {
-  console.log("⏳ PIX ainda pendente");
-  return res.sendStatus(200);
-}
-
-const phone =
-  data.customer?.phone ||
-  data.customer?.phone_number;
-
-const txid = data.transaction || data.hash;
-
-
-  if (!pagamentoConfirmado) {
-    console.log("⏳ PIX ainda pendente:", paymentStatus);
-    return res.sendStatus(200);
-}
-
-console.log("🎉 PIX CONFIRMADO:", paymentStatus);
-
-
-     // � AVISA O BOTPRO PARA DISPARAR O FLUXO DE ENTREGA
-await axios.post(
-  "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBe0xgUvQZzly",
-  {
-    celular: phone,
-    status: "confirmed",
-    txid: txid
-  },
-  {
-    headers: {
-      "Content-Type": "application/json"
+    if (!pagamentoConfirmado) {
+      console.log("⏳ PIX ainda pendente");
+      return res.sendStatus(200);
     }
-  }
-);
 
-  
+    const phone =
+      data.customer?.phone ||
+      data.customer?.phone_number;
 
-      // 📊 META PURCHASE
-      await axios.post(
-        `https://graph.facebook.com/v18.0/${process.env.META_PIXEL_ID}/events`,
-        {
-          data: [
-            {
-              event_name: "Purchase",
-              event_time: Math.floor(Date.now() / 1000),
-              action_source: "website",
-              event_id: txid,
-              user_data: {
-                ph: phone ? hash(phone) : undefined
-              },
-              custom_data: {
-                value: evento.amount / 100,
-                currency: "BRL"
-              }
-            }
-          ]
-        },
-        {
-          params: {
-            access_token: process.env.META_ACCESS_TOKEN
-          }
+    const txid =
+      data.transaction ||
+      data.hash ||
+      data.txid;
+
+    console.log("🎉 PIX CONFIRMADO:", txid);
+
+    // 🚀 DISPARA ENTREGA NO BOTPRO
+    await axios.post(
+      "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBe0xgUvQZzly",
+      {
+        celular: phone,
+        status: "confirmed",
+        txid: txid
+      },
+      {
+        headers: {
+          "Content-Type": "application/json"
         }
-      );
+      }
+    );
 
-    // 🤖 BOTPRO – DISPARA FLUXO
-await axios.post(
-  "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBe0xgUvQZzly",
-  {
-    celular: phone,
-    nome: evento.customer?.name || "Cliente",
-    mensagem: "🎉 Pagamento confirmado! Seu acesso será liberado agora."
-  },
-  {
-    headers: {
-      "Content-Type": "application/json"
-    }
-  }
-);
+    // 📊 META PURCHASE
+    await axios.post(
+      `https://graph.facebook.com/v18.0/${process.env.META_PIXEL_ID}/events`,
+      {
+        data: [
+          {
+            event_name: "Purchase",
+            event_time: Math.floor(Date.now() / 1000),
+            action_source: "website",
+            event_id: txid,
+            user_data: {
+              ph: phone ? hash(phone) : undefined
+            },
+            custom_data: {
+              value: data.amount / 100,
+              currency: "BRL"
+            }
+          }
+        ]
+      },
+      {
+        params: {
+          access_token: process.env.META_ACCESS_TOKEN
+        }
+      }
+    );
 
-    res.sendStatus(200);
+    console.log("✅ ENTREGA DISPARADA COM SUCESSO");
+    return res.sendStatus(200);
 
   } catch (err) {
     console.log("❌ ERRO WEBHOOK:", err.response?.data || err.message);
-    res.sendStatus(500);
+    return res.sendStatus(500);
   }
 });
+
+// 🤖 BOTPRO – DISPARA FLUXO
+  await axios.post(
+    "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBe0xgUvQZzly",
+    {
+      celular: phone,
+      nome: evento.customer?.name || "Cliente",
+      mensagem: "🎉 Pagamento confirmado! Seu acesso será liberado agora."
+    },
+    {
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }
+  );
+
+  res.sendStatus(200);
 
 // 🚀 START
 const PORT = process.env.PORT || 3000;
