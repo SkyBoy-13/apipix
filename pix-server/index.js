@@ -231,20 +231,37 @@ app.post("/webhook-pix", async (req, res) => {
   }
 });
 
-// 🤖 BOTPRO – DISPARA FLUXO
-  await axios.post(
-    "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBe0xgUvQZzly",
-    {
-      celular: phone,
-      nome: evento.customer?.name || "Cliente",
-      mensagem: "🎉 Pagamento confirmado! Seu acesso será liberado agora."
-    },
-    {
-      headers: {
-        "Content-Type": "application/json"
-      }
+  // 🤖 BOTPRO – DISPARA FLUXO
+app.post("/webhook-pix", async (req, res) => {
+  try {
+    const { phone, evento } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ erro: "phone não enviado" });
     }
-  );
+
+    await axios.post(
+      "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8cFDNvTaog5cDxBe0xgUvQZzly",
+      {
+        celular: phone,
+        nome: evento?.customer?.name || "Cliente",
+        mensagem: "💸 Pagamento confirmado! Seu acesso será liberado agora."
+      },
+      {
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    console.log("✅ ENTREGA DISPARADA COM SUCESSO");
+    return res.sendStatus(200);
+
+  } catch (err) {
+    console.log("❌ ERRO WEBHOOK:", err.response?.data || err.message);
+    return res.sendStatus(500);
+  }
+});
 
   res.sendStatus(200);
 
