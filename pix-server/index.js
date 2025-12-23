@@ -263,7 +263,7 @@ app.post("/webhook-pix", async (req, res) => {
   }
 });
 
-  res.sendStatus(200);
+  
 
 // 🚀 START
 const PORT = process.env.PORT || 3000;
