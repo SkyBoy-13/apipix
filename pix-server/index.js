@@ -30,15 +30,13 @@ app.use((req, res, next) => {
 });
 
 /* =========================
-   📲 Z-API SEND
+   📲 Z-API - TEXTO
 ========================= */
-async function enviarWhatsAppZapi({ telefone, mensagem }) {
+async function enviarTextoZapi({ telefone, mensagem }) {
   const phone = telefone.replace(/\D/g, "");
 
-  const url = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`;
-
   await axios.post(
-    url,
+    `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
     {
       phone: `55${phone}`,
       message: mensagem
@@ -53,22 +51,67 @@ async function enviarWhatsAppZapi({ telefone, mensagem }) {
 }
 
 /* =========================
-   🧾 MSG PIX
+   📸 Z-API - IMAGEM (QR)
 ========================= */
-function mensagemPix({ nome, valor, copiaecola }) {
-  return `
-Olá ${nome}! 👋
+async function enviarQrCodeZapi({ telefone, copiaecola }) {
+  const phone = telefone.replace(/\D/g, "");
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(
+    copiaecola
+  )}`;
+
+  await axios.post(
+    `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-image`,
+    {
+      phone: `55${phone}`,
+      image: qrUrl,
+      caption: "📲 Escaneie o QR Code para pagar via PIX"
+    },
+    {
+      headers: {
+        "Client-Token": process.env.ZAPI_CLIENT_TOKEN
+      }
+    }
+  );
+}
+
+/* =========================
+   🔘 Z-API - BOTÃO PIX
+========================= */
+async function enviarBotaoPixZapi({ telefone, copiaecola }) {
+  const phone = telefone.replace(/\D/g, "");
+
+  await axios.post(
+    `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-button-pix`,
+    {
+      phone: `55${phone}`,
+      pixKey: copiaecola,
+      type: "EVP",
+      merchantName: "Ipanema Brasil"
+    },
+    {
+      headers: {
+        "Client-Token": process.env.ZAPI_CLIENT_TOKEN,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+}
+
+/* =========================
+   🧾 MENSAGEM PIX
+========================= */
+function mensagemPix({ nome, valor }) {
+  return `Olá ${nome}! 👋
 
 Seu pedido foi criado com sucesso ✅
 
 💰 Valor: R$ ${valor}
 
-⚡ PIX Copia e Cola:
-${copiaecola}
+Use o QR Code abaixo ou o botão PIX para copiar a chave 👇
 
 ⏱️ O pagamento é confirmado automaticamente.
-Qualquer dúvida, é só responder 😉
-`;
+Qualquer dúvida é só responder 😉`;
 }
 
 /* ================================
@@ -134,14 +177,23 @@ app.post("/gerar-pix", async (req, res) => {
     const trx = resposta.data;
     const copiaecola = trx.pix.pix_qr_code;
 
-    /* ===== ENVIA WHATSAPP ===== */
-    await enviarWhatsAppZapi({
+    /* ===== WHATSAPP FLOW ===== */
+    await enviarTextoZapi({
       telefone: phoneClean,
       mensagem: mensagemPix({
         nome,
-        valor: (amount / 100).toFixed(2),
-        copiaecola
+        valor: (amount / 100).toFixed(2)
       })
+    });
+
+    await enviarQrCodeZapi({
+      telefone: phoneClean,
+      copiaecola
+    });
+
+    await enviarBotaoPixZapi({
+      telefone: phoneClean,
+      copiaecola
     });
 
     return res.json({
@@ -149,7 +201,6 @@ app.post("/gerar-pix", async (req, res) => {
       copiaecola,
       txid: trx.hash
     });
-
   } catch (err) {
     console.log("❌ ERRO PIX:", err.response?.data || err.message);
     return res.status(500).json({ erro: "Falha ao gerar PIX" });
@@ -217,7 +268,6 @@ app.post("/webhook-pix", async (req, res) => {
     );
 
     return res.sendStatus(200);
-
   } catch (err) {
     console.log("❌ ERRO WEBHOOK:", err.response?.data || err.message);
     return res.sendStatus(500);
