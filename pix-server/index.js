@@ -8,6 +8,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+
 // 🔐 HASH META
 function hash(value) {
   return crypto
@@ -29,25 +30,46 @@ app.post("/gerar-pix", async (req, res) => {
   console.log("📥 REQ BODY RECEBIDO:", req.body);
 
   try {
-    const { valor, nome, email, telefone } = req.body;
+    const { nome, email, telefone, cart } = req.body;
 
-   const phoneRaw = telefone || "";
-  const phoneClean = phoneRaw.replace(/\D/g, "");
+    // 🔒 sanitizar telefone
+    const phoneClean = (telefone || "").replace(/\D/g, "");
+    if (phoneClean.length < 10) {
+      return res.status(400).json({ erro: "Telefone inválido" });
+    }
 
-  if (!phoneClean || phoneClean.length < 10) {
-  return res.status(400).json({ erro: "Telefone inválido ou vazio" });
-  }
+    // =========================
+    // 2️⃣ VALIDAR CARRINHO
+    // =========================
+    if (!Array.isArray(cart) || cart.length === 0) {
+      return res.status(400).json({ erro: "Carrinho vazio ou inválido" });
+    }
 
-  const amount = Math.round(Number(valor) * 100);
+    // =========================
+    // 3️⃣ CALCULAR TOTAL REAL
+    // =========================
+    let total = 0;
 
+    for (const item of cart) {
+      if (
+        typeof item.price !== "number" ||
+        typeof item.qty !== "number"
+      ) {
+        return res.status(400).json({ erro: "Item inválido no carrinho" });
+      }
+      total += item.price * item.qty;
+    }
 
+    const amount = Math.round(total * 100); // centavos
+
+    // =========================
     // 🔥 MASTERFY – CRIA PIX
+    // =========================
     const resposta = await axios.post(
       "https://api.masterfy.com.br/api/public/v1/transactions",
       {
         api_token: process.env.MASTERFY_API_TOKEN,
         offer_hash: process.env.MASTERFY_OFFER_HASH,
-
         amount: amount,
         payment_method: "pix",
         installments: 1,
@@ -56,19 +78,17 @@ app.post("/gerar-pix", async (req, res) => {
           name: nome,
           email: email,
           phone_number: phoneClean,
-          document: "11144477735" // CPF FIXO
+          document: "11144477735"
         },
 
-        cart: [
-          {
-            product_hash: process.env.MASTERFY_OFFER_HASH,
-            title: "Produto Digital",
-            price: amount,
-            quantity: 1,
-            operation_type: 1,
-            tangible: false
-          }
-        ],
+        cart: cart.map(item => ({
+          product_hash: process.env.MASTERFY_OFFER_HASH,
+          title: item.title,
+          price: Math.round(item.price * 100),
+          quantity: item.qty,
+          operation_type: 1,
+          tangible: true
+        })),
 
         postback_url: "https://pix-server.fly.dev/webhook-pix",
         transaction_origin: "api"
@@ -82,72 +102,21 @@ app.post("/gerar-pix", async (req, res) => {
     );
 
     const transaction = resposta.data;
-    const copiaecola = transaction.pix.pix_qr_code;
-    const txid = transaction.hash;
-
-    // ================================
-    // 📲 ENVIA PIX NO WHATSAPP (Z-API)
-    // ================================
-   /*await axios.post(
-      `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`,
-      {
-        phone: phoneClean,
-        message:
-          `👋 Olá, ${nome}!\n\n` +
-          `Aqui está seu PIX para pagamento:\n\n` +
-          `💰 Valor: R$ ${(amount / 100).toFixed(2)}\n` +
-          `🧾 TXID: ${txid}\n\n` +
-          `📋 Código Copia e Cola:\n\n${copiaecola}`
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Client-Token": process.env.ZAPI_CLIENT_TOKEN
-        }
-      }
-    );
-
-      
-
-    // ⏳ DELAY
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // 🔘 BOTÃO COPIAR
-    await axios.post(
-      `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-button`,
-      {
-        phone: phoneClean,
-        message: "Clique abaixo para copiar o código PIX:",
-        buttons: [
-          {
-            type: "reply",
-            id: "copiar_pix",
-            text: "📋 COPIAR CÓDIGO PIX"
-          }
-        ]
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Client-Token": process.env.ZAPI_CLIENT_TOKEN
-        }
-      }
-    );
-
-    */
 
     return res.json({
       status: transaction.payment_status,
-      copiaecola,
-      txid
+      copiaecola: transaction.pix.pix_qr_code,
+      txid: transaction.hash
     });
 
   } catch (err) {
-    console.log("❌ ERRO MASTERFY/Z-API:");
+    console.log("❌ ERRO GERAR PIX:");
     console.log(err.response?.data || err.message);
     return res.status(500).json({ erro: "Falha ao gerar PIX" });
   }
 });
+
+
 
 // =================================
 // 📡 WEBHOOK PIX (CONFIRMAÇÃO)
