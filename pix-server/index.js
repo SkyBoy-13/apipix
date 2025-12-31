@@ -2,14 +2,18 @@ import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
 import crypto from "crypto";
+import cors from "cors";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
+app.use(cors({ origin: "*", methods: ["GET", "POST", "OPTIONS"] }));
+app.options("*", cors());
 
-
-// 🔐 HASH META
+/* =========================
+   🔐 UTIL
+========================= */
 function hash(value) {
   return crypto
     .createHash("sha256")
@@ -17,66 +21,92 @@ function hash(value) {
     .digest("hex");
 }
 
-// 🔥 LOG
+/* =========================
+   🔥 LOG
+========================= */
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// ================================
-// 🚀 GERAR PIX (IGUAL AO BUCKPAY)
-// ================================
-app.post("/gerar-pix", async (req, res) => {
-  console.log("📥 REQ BODY RECEBIDO:", req.body);
+/* =========================
+   📲 Z-API SEND
+========================= */
+async function enviarWhatsAppZapi({ telefone, mensagem }) {
+  const phone = telefone.replace(/\D/g, "");
 
+  const url = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`;
+
+  await axios.post(
+    url,
+    {
+      phone: `55${phone}`,
+      message: mensagem
+    },
+    {
+      headers: {
+        "Client-Token": process.env.ZAPI_CLIENT_TOKEN,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+}
+
+/* =========================
+   🧾 MSG PIX
+========================= */
+function mensagemPix({ nome, valor, copiaecola }) {
+  return `
+Olá ${nome}! 👋
+
+Seu pedido foi criado com sucesso ✅
+
+💰 Valor: R$ ${valor}
+
+⚡ PIX Copia e Cola:
+${copiaecola}
+
+⏱️ O pagamento é confirmado automaticamente.
+Qualquer dúvida, é só responder 😉
+`;
+}
+
+/* ================================
+   🚀 GERAR PIX
+================================ */
+app.post("/gerar-pix", async (req, res) => {
   try {
     const { nome, email, telefone, cart } = req.body;
 
-    // 🔒 sanitizar telefone
     const phoneClean = (telefone || "").replace(/\D/g, "");
     if (phoneClean.length < 10) {
       return res.status(400).json({ erro: "Telefone inválido" });
     }
 
-    // =========================
-    // 2️⃣ VALIDAR CARRINHO
-    // =========================
     if (!Array.isArray(cart) || cart.length === 0) {
-      return res.status(400).json({ erro: "Carrinho vazio ou inválido" });
+      return res.status(400).json({ erro: "Carrinho vazio" });
     }
 
-    // =========================
-    // 3️⃣ CALCULAR TOTAL REAL
-    // =========================
     let total = 0;
-
     for (const item of cart) {
-      if (
-        typeof item.price !== "number" ||
-        typeof item.qty !== "number"
-      ) {
-        return res.status(400).json({ erro: "Item inválido no carrinho" });
-      }
       total += item.price * item.qty;
     }
 
-    const amount = Math.round(total * 100); // centavos
+    const amount = Math.round(total * 100);
 
-    // =========================
-    // 🔥 MASTERFY – CRIA PIX
-    // =========================
+    /* ===== MASTERFY ===== */
     const resposta = await axios.post(
       "https://api.masterfy.com.br/api/public/v1/transactions",
       {
         api_token: process.env.MASTERFY_API_TOKEN,
         offer_hash: process.env.MASTERFY_OFFER_HASH,
-        amount: amount,
+        amount,
         payment_method: "pix",
         installments: 1,
 
         customer: {
           name: nome,
-          email: email,
+          email,
           phone_number: phoneClean,
           document: "11144477735"
         },
@@ -86,8 +116,8 @@ app.post("/gerar-pix", async (req, res) => {
           title: item.title,
           price: Math.round(item.price * 100),
           quantity: item.qty,
-          operation_type: 1,
-          tangible: true
+          tangible: true,
+          operation_type: 1
         })),
 
         postback_url: "https://pix-server.fly.dev/webhook-pix",
@@ -96,47 +126,49 @@ app.post("/gerar-pix", async (req, res) => {
       {
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json"
+          Accept: "application/json"
         }
       }
     );
 
-    const transaction = resposta.data;
+    const trx = resposta.data;
+    const copiaecola = trx.pix.pix_qr_code;
+
+    /* ===== ENVIA WHATSAPP ===== */
+    await enviarWhatsAppZapi({
+      telefone: phoneClean,
+      mensagem: mensagemPix({
+        nome,
+        valor: (amount / 100).toFixed(2),
+        copiaecola
+      })
+    });
 
     return res.json({
-      status: transaction.payment_status,
-      copiaecola: transaction.pix.pix_qr_code,
-      txid: transaction.hash
+      status: trx.payment_status,
+      copiaecola,
+      txid: trx.hash
     });
 
   } catch (err) {
-    console.log("❌ ERRO GERAR PIX:");
-    console.log(err.response?.data || err.message);
+    console.log("❌ ERRO PIX:", err.response?.data || err.message);
     return res.status(500).json({ erro: "Falha ao gerar PIX" });
   }
 });
 
-
-
-// =================================
-// 📡 WEBHOOK PIX (CONFIRMAÇÃO)
-// =================================
+/* =================================
+   📡 WEBHOOK PIX
+================================= */
 app.post("/webhook-pix", async (req, res) => {
-  console.log("📡 WEBHOOK PIX RECEBIDO:", req.body);
-
   try {
     const data = req.body.data || req.body;
 
-    const pagamentoConfirmado =
+    const confirmado =
       data.status === "confirmed" ||
-      data.statuspg === "confirmed" ||
       data.payment_status === "paid" ||
       data.payment_status === "approved";
 
-    if (!pagamentoConfirmado) {
-      console.log("⏳ PIX ainda pendente");
-      return res.sendStatus(200);
-    }
+    if (!confirmado) return res.sendStatus(200);
 
     const phone =
       data.customer?.phone ||
@@ -147,24 +179,17 @@ app.post("/webhook-pix", async (req, res) => {
       data.hash ||
       data.txid;
 
-    console.log("🎉 PIX CONFIRMADO:", txid);
-
-    // 🚀 DISPARA ENTREGA NO BOTPRO
+    /* ===== BOTPRO ===== */
     await axios.post(
       "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBe0xgUvQZzly",
       {
         celular: phone,
         status: "confirmed",
-        txid: txid
-      },
-      {
-        headers: {
-          "Content-Type": "application/json"
-        }
+        txid
       }
     );
 
-    // 📊 META PURCHASE
+    /* ===== META PURCHASE ===== */
     await axios.post(
       `https://graph.facebook.com/v18.0/${process.env.META_PIXEL_ID}/events`,
       {
@@ -191,7 +216,6 @@ app.post("/webhook-pix", async (req, res) => {
       }
     );
 
-    console.log("✅ ENTREGA DISPARADA COM SUCESSO");
     return res.sendStatus(200);
 
   } catch (err) {
@@ -200,12 +224,10 @@ app.post("/webhook-pix", async (req, res) => {
   }
 });
 
-  
-
-  
-
-// 🚀 START
+/* =========================
+   🚀 START
+========================= */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("Servidor rodando na porta", PORT);
+  console.log("🔥 PIX + Z-API rodando na porta", PORT);
 });
