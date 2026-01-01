@@ -129,7 +129,7 @@ ${formatarProdutos(cart)}
 Use o QR Code abaixo ou o botão PIX para copiar a chave 👇
 
 ⏱️ O pagamento é confirmado automaticamente.
-Qualquer dúvida é só responder 😉
+O código de rastreio será enviado em até 1 dia útil. 😉
 `;
 }
 
