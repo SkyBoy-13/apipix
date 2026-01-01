@@ -30,6 +30,21 @@ app.use((req, res, next) => {
 });
 
 /* =========================
+   🛒 FORMATAR PRODUTOS
+========================= */
+function formatarProdutos(cart) {
+  let texto = "🛒 *Itens do pedido:*\n";
+
+  cart.forEach((item, index) => {
+    texto += `\n${index + 1}. ${item.title}`;
+    texto += `\n   ▸ Qtd: ${item.qty}`;
+    texto += `\n   ▸ Valor: R$ ${(item.price * item.qty).toFixed(2)}\n`;
+  });
+
+  return texto;
+}
+
+/* =========================
    📲 Z-API - TEXTO
 ========================= */
 async function enviarTextoZapi({ telefone, mensagem }) {
@@ -101,17 +116,21 @@ async function enviarBotaoPixZapi({ telefone, copiaecola }) {
 /* =========================
    🧾 MENSAGEM PIX
 ========================= */
-function mensagemPix({ nome, valor }) {
-  return `Olá ${nome}! 👋
+function mensagemPix({ nome, valor, cart }) {
+  return `
+Olá ${nome}! 👋
 
 Seu pedido foi criado com sucesso ✅
 
-💰 Valor: R$ ${valor}
+${formatarProdutos(cart)}
+
+💰 *Total:* R$ ${valor}
 
 Use o QR Code abaixo ou o botão PIX para copiar a chave 👇
 
 ⏱️ O pagamento é confirmado automaticamente.
-Qualquer dúvida é só responder 😉`;
+Qualquer dúvida é só responder 😉
+`;
 }
 
 /* ================================
@@ -131,9 +150,9 @@ app.post("/gerar-pix", async (req, res) => {
     }
 
     let total = 0;
-    for (const item of cart) {
+    cart.forEach(item => {
       total += item.price * item.qty;
-    }
+    });
 
     const amount = Math.round(total * 100);
 
@@ -146,14 +165,12 @@ app.post("/gerar-pix", async (req, res) => {
         amount,
         payment_method: "pix",
         installments: 1,
-
         customer: {
           name: nome,
           email,
           phone_number: phoneClean,
           document: "11144477735"
         },
-
         cart: cart.map(item => ({
           product_hash: process.env.MASTERFY_OFFER_HASH,
           title: item.title,
@@ -162,7 +179,6 @@ app.post("/gerar-pix", async (req, res) => {
           tangible: true,
           operation_type: 1
         })),
-
         postback_url: "https://pix-server.fly.dev/webhook-pix",
         transaction_origin: "api"
       },
@@ -182,19 +198,13 @@ app.post("/gerar-pix", async (req, res) => {
       telefone: phoneClean,
       mensagem: mensagemPix({
         nome,
-        valor: (amount / 100).toFixed(2)
+        valor: (amount / 100).toFixed(2),
+        cart
       })
     });
 
-    await enviarQrCodeZapi({
-      telefone: phoneClean,
-      copiaecola
-    });
-
-    await enviarBotaoPixZapi({
-      telefone: phoneClean,
-      copiaecola
-    });
+    await enviarQrCodeZapi({ telefone: phoneClean, copiaecola });
+    await enviarBotaoPixZapi({ telefone: phoneClean, copiaecola });
 
     return res.json({
       status: trx.payment_status,
@@ -279,5 +289,5 @@ app.post("/webhook-pix", async (req, res) => {
 ========================= */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("🔥 PIX + Z-API rodando na porta", PORT);
+  console.log("🔥 PIX + Z-API + PRODUTOS rodando na porta", PORT);
 });
