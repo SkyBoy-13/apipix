@@ -12,6 +12,12 @@ app.use(cors({ origin: "*", methods: ["GET", "POST", "OPTIONS"] }));
 app.options("*", cors());
 
 /* =========================
+   🧠 MEMÓRIA DE PAGAMENTOS
+========================= */
+// txid => { status: "paid", paidAt }
+const pagamentos = {};
+
+/* =========================
    🔐 UTIL
 ========================= */
 function hash(value) {
@@ -192,6 +198,13 @@ app.post("/gerar-pix", async (req, res) => {
 
     const trx = resposta.data;
     const copiaecola = trx.pix.pix_qr_code;
+    const txid = trx.hash;
+
+    // registra como pendente
+    pagamentos[txid] = {
+      status: "pending",
+      createdAt: Date.now()
+    };
 
     /* ===== WHATSAPP FLOW ===== */
     await enviarTextoZapi({
@@ -209,7 +222,7 @@ app.post("/gerar-pix", async (req, res) => {
     return res.json({
       status: trx.payment_status,
       copiaecola,
-      txid: trx.hash
+      txid
     });
   } catch (err) {
     console.log("❌ ERRO PIX:", err.response?.data || err.message);
@@ -231,14 +244,20 @@ app.post("/webhook-pix", async (req, res) => {
 
     if (!confirmado) return res.sendStatus(200);
 
-    const phone =
-      data.customer?.phone ||
-      data.customer?.phone_number;
-
     const txid =
       data.transaction ||
       data.hash ||
       data.txid;
+
+    const phone =
+      data.customer?.phone ||
+      data.customer?.phone_number;
+
+    // marca como pago
+    pagamentos[txid] = {
+      status: "paid",
+      paidAt: Date.now()
+    };
 
     /* ===== BOTPRO ===== */
     await axios.post(
@@ -284,10 +303,26 @@ app.post("/webhook-pix", async (req, res) => {
   }
 });
 
+/* =================================
+   🔍 CONSULTAR STATUS DO PIX
+================================= */
+app.get("/status-pix/:txid", (req, res) => {
+  const { txid } = req.params;
+
+  if (!pagamentos[txid]) {
+    return res.json({ status: "pending" });
+  }
+
+  return res.json({
+    status: pagamentos[txid].status,
+    paidAt: pagamentos[txid].paidAt || null
+  });
+});
+
 /* =========================
    🚀 START
 ========================= */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("🔥 PIX + Z-API + PRODUTOS rodando na porta", PORT);
+  console.log("🔥 PIX + Z-API + STATUS + REDIRECT rodando na porta", PORT);
 });
