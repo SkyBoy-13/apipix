@@ -130,7 +130,7 @@ Seu pedido foi criado com sucesso ✅
 
 ${formatarProdutos(cart)}
 
-💰 *Total:* R$ ${valor}
+💰 *Total com frete:* R$ ${valor}
 
 Use o QR Code abaixo ou o botão PIX para copiar a chave 👇
 
@@ -144,7 +144,7 @@ O código de rastreio será enviado em até 1 dia útil. 😉
 ================================ */
 app.post("/gerar-pix", async (req, res) => {
   try {
-    const { nome, email, telefone, cart } = req.body;
+    const { nome, email, telefone, cart, shipping } = req.body;
 
     const phoneClean = (telefone || "").replace(/\D/g, "");
     if (phoneClean.length < 10) {
@@ -156,9 +156,14 @@ app.post("/gerar-pix", async (req, res) => {
     }
 
     let total = 0;
-    cart.forEach(item => {
-      total += item.price * item.qty;
-    });
+
+      cart.forEach(item => {
+        total += item.price * item.qty;
+      });
+
+      const frete = Number(shipping || 0);
+      total += frete;
+
 
     const amount = Math.round(total * 100);
 
