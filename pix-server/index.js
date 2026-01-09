@@ -38,7 +38,7 @@ app.use((req, res, next) => {
 /* =========================
    🛒 FORMATAR PRODUTOS
 ========================= */
-function formatarProdutos(cart) {
+function formatarProdutos(cart, frete) {
   let texto = "🛒 *Itens do pedido:*\n";
 
   cart.forEach((item, index) => {
@@ -47,8 +47,19 @@ function formatarProdutos(cart) {
     texto += `\n   ▸ Valor: R$ ${(item.price * item.qty).toFixed(2)}\n`;
   });
 
+  if (frete > 0) {
+    texto += `\n${cart.length + 1}. Frete`;
+    texto += `\n   ▸ Tipo: Frete Expresso`;
+    texto += `\n   ▸ Valor: R$ ${frete.toFixed(2)}\n`;
+  } else {
+    texto += `\n${cart.length + 1}. Frete`;
+    texto += `\n   ▸ Tipo: Frete Grátis`;
+    texto += `\n   ▸ Valor: R$ 0,00\n`;
+  }
+
   return texto;
 }
+
 
 /* =========================
    📲 Z-API - TEXTO
@@ -122,13 +133,13 @@ async function enviarBotaoPixZapi({ telefone, copiaecola }) {
 /* =========================
    🧾 MENSAGEM PIX
 ========================= */
-function mensagemPix({ nome, valor, cart }) {
+function mensagemPix({ nome, valor, cart, frete }) {
   return `
 Olá ${nome}! 👋
 
 Seu pedido foi criado com sucesso ✅
 
-${formatarProdutos(cart)}
+${formatarProdutos(cart, frete)}
 
 💰 *Total com frete:* R$ ${valor}
 
@@ -155,17 +166,17 @@ app.post("/gerar-pix", async (req, res) => {
       return res.status(400).json({ erro: "Carrinho vazio" });
     }
 
-    let total = 0;
+    let totalProdutos = 0;
 
-      cart.forEach(item => {
-        total += item.price * item.qty;
-      });
+    cart.forEach(item => {
+      totalProdutos += item.price * item.qty;
+    });
 
-      const frete = Number(shipping || 0);
-      total += frete;
+    const frete = Number(shipping || 0);
+    const totalFinal = totalProdutos + frete;
 
+    const amount = Math.round(totalFinal * 100);
 
-    const amount = Math.round(total * 100);
 
     /* ===== MASTERFY ===== */
     const resposta = await axios.post(
@@ -217,8 +228,10 @@ app.post("/gerar-pix", async (req, res) => {
       mensagem: mensagemPix({
         nome,
         valor: (amount / 100).toFixed(2),
-        cart
+        cart,
+        frete
       })
+
     });
 
     await enviarQrCodeZapi({ telefone: phoneClean, copiaecola });
