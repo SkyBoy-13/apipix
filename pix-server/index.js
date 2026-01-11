@@ -60,7 +60,6 @@ function formatarProdutos(cart, frete) {
   return texto;
 }
 
-
 /* =========================
    📲 Z-API - TEXTO
 ========================= */
@@ -167,18 +166,14 @@ app.post("/gerar-pix", async (req, res) => {
     }
 
     let totalProdutos = 0;
-
     cart.forEach(item => {
       totalProdutos += item.price * item.qty;
     });
 
     const frete = Number(shipping || 0);
     const totalFinal = totalProdutos + frete;
-
     const amount = Math.round(totalFinal * 100);
 
-
-    /* ===== MASTERFY ===== */
     const resposta = await axios.post(
       "https://api.masterfy.com.br/api/public/v1/transactions",
       {
@@ -203,12 +198,6 @@ app.post("/gerar-pix", async (req, res) => {
         })),
         postback_url: "https://pix-server.fly.dev/webhook-pix",
         transaction_origin: "api"
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        }
       }
     );
 
@@ -216,13 +205,11 @@ app.post("/gerar-pix", async (req, res) => {
     const copiaecola = trx.pix.pix_qr_code;
     const txid = trx.hash;
 
-    // registra como pendente
     pagamentos[txid] = {
       status: "pending",
       createdAt: Date.now()
     };
 
-    /* ===== WHATSAPP FLOW ===== */
     await enviarTextoZapi({
       telefone: phoneClean,
       mensagem: mensagemPix({
@@ -231,7 +218,6 @@ app.post("/gerar-pix", async (req, res) => {
         cart,
         frete
       })
-
     });
 
     await enviarQrCodeZapi({ telefone: phoneClean, copiaecola });
@@ -271,23 +257,18 @@ app.post("/webhook-pix", async (req, res) => {
       data.customer?.phone ||
       data.customer?.phone_number;
 
-    // marca como pago
+    // 🔒 BLOQUEIO DE DUPLICAÇÃO
+    if (pagamentos[txid]?.status === "paid") {
+      console.log("🔁 Purchase já enviado, ignorando:", txid);
+      return res.sendStatus(200);
+    }
+
+    // marca como pago ANTES de enviar evento
     pagamentos[txid] = {
       status: "paid",
       paidAt: Date.now()
     };
 
-    /* ===== BOTPRO ===== */
-    await axios.post(
-      "https://backend.botprooficial.com.br/webhook/17596/o27Grux97PMaEMhs8CfDNwTaog5cDxBe0xgUvQZzly",
-      {
-        celular: phone,
-        status: "confirmed",
-        txid
-      }
-    );
-
-    /* ===== META PURCHASE ===== */
     await axios.post(
       `https://graph.facebook.com/v18.0/${process.env.META_PIXEL_ID}/events`,
       {
@@ -342,5 +323,5 @@ app.get("/status-pix/:txid", (req, res) => {
 ========================= */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("🔥 PIX + Z-API + STATUS + REDIRECT rodando na porta", PORT);
+  console.log("🔥 PIX + Z-API + STATUS rodando na porta", PORT);
 });
