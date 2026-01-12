@@ -177,7 +177,10 @@ app.post("/gerar-pix", async (req, res) => {
       totalProdutos += item.price * item.qty;
     });
 
-    const frete = Number(shipping || 0);
+    const frete =
+    shipping?.type === "delivery"
+    ? Number(shipping.price || 0)
+    : 0;
     const totalFinal = totalProdutos + frete;
     const amount = Math.round(totalFinal * 100);
 
