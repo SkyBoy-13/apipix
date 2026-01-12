@@ -38,7 +38,7 @@ app.use((req, res, next) => {
 /* =========================
    🛒 FORMATAR PRODUTOS
 ========================= */
-function formatarProdutos(cart, frete) {
+function formatarProdutos(cart, frete, shipping) {
   let texto = "🛒 *Itens do pedido:*\n";
 
   cart.forEach((item, index) => {
@@ -47,18 +47,24 @@ function formatarProdutos(cart, frete) {
     texto += `\n   ▸ Valor: R$ ${(item.price * item.qty).toFixed(2)}\n`;
   });
 
-  if (frete > 0) {
-    texto += `\n${cart.length + 1}. Frete`;
+  texto += `\n${cart.length + 1}. Frete`;
+
+  // 🚚 ENTREGA NORMAL
+  if (shipping?.type === "delivery") {
     texto += `\n   ▸ Tipo: Frete Expresso`;
     texto += `\n   ▸ Valor: R$ ${frete.toFixed(2)}\n`;
-  } else {
-    texto += `\n${cart.length + 1}. Frete`;
-    texto += `\n   ▸ Tipo: Frete Grátis`;
+  }
+
+  // 🏬 RETIRADA NO LOCAL
+  if (shipping?.type === "pickup") {
+    texto += `\n   ▸ Tipo: Retirada no local`;
+    texto += `\n   ▸ Local: ${shipping.storeName}`;
     texto += `\n   ▸ Valor: R$ 0,00\n`;
   }
 
   return texto;
 }
+
 
 /* =========================
    📲 Z-API - TEXTO
@@ -132,15 +138,15 @@ async function enviarBotaoPixZapi({ telefone, copiaecola }) {
 /* =========================
    🧾 MENSAGEM PIX
 ========================= */
-function mensagemPix({ nome, valor, cart, frete }) {
+function mensagemPix({ nome, valor, cart, frete, shipping }) {
   return `
 Olá ${nome}! 👋
 
 Seu pedido foi criado com sucesso ✅
 
-${formatarProdutos(cart, frete)}
+${formatarProdutos(cart, frete, shipping)}
 
-💰 *Total com frete:* R$ ${valor}
+💰 *Total:* R$ ${valor}
 
 Use o QR Code abaixo ou o botão PIX para copiar a chave 👇
 
@@ -148,6 +154,7 @@ Use o QR Code abaixo ou o botão PIX para copiar a chave 👇
 O código de rastreio será enviado em até 1 dia útil. 😉
 `;
 }
+
 
 /* ================================
    🚀 GERAR PIX
@@ -216,7 +223,8 @@ app.post("/gerar-pix", async (req, res) => {
         nome,
         valor: (amount / 100).toFixed(2),
         cart,
-        frete
+        frete,
+        shipping
       })
     });
 
