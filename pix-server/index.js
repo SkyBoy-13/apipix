@@ -12,6 +12,12 @@ app.use(cors({ origin: "*", methods: ["GET", "POST", "OPTIONS"] }));
 app.options("*", cors());
 
 /* =========================
+   🏬 RETIRADA EM LOJA
+========================= */
+const CODIGO_RETIRADA = "7392";
+const HORARIO_RETIRADA = "09:30";
+
+/* =========================
    🧠 MEMÓRIA DE PAGAMENTOS
 ========================= */
 // txid => { status: "paid", paidAt }
@@ -57,10 +63,18 @@ function formatarProdutos(cart, frete, shipping) {
 
   // 🏬 RETIRADA NO LOCAL
   if (shipping?.type === "pickup") {
-    texto += `\n   ▸ Tipo: Retirada no local`;
-    texto += `\n   ▸ Local: ${shipping.storeName}`;
-    texto += `\n   ▸ Valor: R$ 0,00\n`;
+  texto += `\n   ▸ Tipo: Retirada no local`;
+  texto += `\n   ▸ Local: ${shipping.storeName}`;
+
+  if (shipping.address) {
+    texto += `\n   ▸ Endereço: ${shipping.address}`;
   }
+
+  texto += `\n   ▸ Horário de retirada: a partir de ${HORARIO_RETIRADA}`;
+  texto += `\n   ▸ Código para retirada: ${CODIGO_RETIRADA}`;
+  texto += `\n   ▸ Valor: R$ 0,00\n`;
+}
+
 
   return texto;
 }
